@@ -1,0 +1,7 @@
+title https://fullstack-exampleapp.herokuapp.com/spa
+
+note over Browser: A function in spa.js is executed when the note is submitted
+note over Browser: Data from the submitted form is appended to the DOM by spa.js
+
+Browser->Server: POST https://fullstack-exampleapp.herokuapp.com/new_note_spa
+Browser->Server: JSON data sent during POST request: {content:"new note", date: "2019-06-07T21:49:37.678Z"}
