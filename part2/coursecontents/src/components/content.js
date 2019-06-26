@@ -1,10 +1,13 @@
 import React from "react"
-import Parts from "./parts"
+import Part from "./part"
 
 const Content= ({partList})=>{
+    const parts= partList.map((part)=>{
+        return <Part key={part.id} part={part}/>
+    })
     return(
         <div>
-            <Parts partList={partList}/>
+            {parts}
         </div>
     )
 }
