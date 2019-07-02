@@ -1,64 +1,50 @@
-import React, {useState} from 'react'
-
-const FilterForm = (props) => {
-    return(
-            <form>
-                filter shown with<input value={props.nameFilter} onChange={props.handleNameFilterChange}/>
-            </form>
-        )
-}
-const NewPersonForm = (props) => {
-    return (
-        <form onSubmit={props.onSubmit}>
-            <div>
-                name:
-                <input
-                    value={props.nameValue}
-                    onChange={props.onNameChange}
-                />
-            </div>
-            <div>
-                number:
-                <input
-                    value={props.numberValue}
-                    onChange={props.onNumberChange}
-                />
-            </div>
-            <div>
-                <button type="submit">add</button>
-            </div>
-        </form>
-    )
-}
-const Person = (props) => {
-    return (
-        <p>{props.name} {props.number}</p>
-    )
-
-}
-const Persons = ({persons}) => persons.map(
-    (person) => {
-        return <Person key={person.name} name={person.name} number={person.number}/>
-    }
-)
+import React, {useState, useEffect} from 'react'
+import FilterForm from './components/FilterForm'
+import NewPersonForm from './components/NewPersonForm'
+import Person from './components/Person'
+import personService from './services/persons'
+import Notification from "./components/Notification"
 
 const App = () => {
-    const [persons, setPersons] = useState([
-        {name: 'Arto Hellas', number: '040-123456'},
-        {name: 'Ada Lovelace', number: '39-44-5323523'},
-        {name: 'Dan Abramov', number: '12-43-234345'},
-        {name: 'Mary Poppendieck', number: '39-23-6423122'}
-    ])
-    const [filteredPersons, setFilteredPersons] = useState(persons)
 
+    useEffect(() => {
+        personService.getAll()
+            .then(
+                (persons) => {
+                    setPersons(persons)
+                    setFilteredPersons(persons)
+                }
+            )
+    }, [])
+
+
+    const [persons, setPersons] = useState([])
+    const [filteredPersons, setFilteredPersons] = useState([])
     const [nameFilter, setNameFilter] = useState('')
     const [newName, setNewName] = useState('')
     const [newNumber, setNewNumber] = useState('')
+    const [message, setMessage] = useState('')
+    const [notificationClass, setNotificationClass] = useState('')
+
+    const personsToShow = nameFilter.length === 0 ? persons : filteredPersons
+
+    const newMessage = (newMessage, newClass) => {
+        setMessage(
+            newMessage
+        )
+        setNotificationClass(
+            newClass
+        )
+        setTimeout(() => {
+            setMessage(null)
+            setNotificationClass(null)
+        }, 5000)
+    }
 
     const handleNameFilterChange = (event) => {
         const newFilteredPersons = persons.filter(
-            (person)=>{
-                return(
+            (person) => {
+                return (
                     person.name.toLowerCase().includes(event.target.value.toLowerCase())
                 )
             }
@@ -83,15 +69,72 @@ const App = () => {
         ).length
 
         if (nameCheck) {
-            alert(`${newName} is already added to phonebook`)
+            if (window.confirm(`${newName} is already added to the phonebook, do you wish to replace the old number with this number?`)) {
+                const nameToBeUpdated = persons.filter(person => person.name === newName)[0]
+                const nameObjectWithId = {...newNameObject, id: nameToBeUpdated.id}
+                console.log(nameObjectWithId)
+                personService.update(nameToBeUpdated.id, nameObjectWithId)
+                    .then(
+                        setPersons(persons.map(person => person.name === newName ? nameObjectWithId : person)),
+                        setFilteredPersons(filteredPersons.map(person => person.name === newName ? nameObjectWithId : person))
+                    )
+                    .then(
+                        newMessage(`${nameObjectWithId.name} number changed successfully`, 'success')
+                    )
+                    .catch(
+                        (error)=>{
+                            newMessage(`${nameObjectWithId.name} has already been deleted from the server`, 'error')
+                        }
+                    )
+            }
         }
         else {
-            setPersons(persons.concat(newNameObject))
+            personService.create(newNameObject)
+                .then(
+                    (person) => {
+                        setPersons(persons.concat(person))
+                    }
+                )
+                .then(
+                    newMessage(`${newNameObject.name} added successfully`, 'success')
+                )
         }
     }
+    const deletePerson = (id) => {
+        const personToBeDeleted = persons.filter((person) => person.id === id)[0]
+        if (window.confirm(`delete ${personToBeDeleted.name}?`)) {
+            personService.remove(id)
+                .then(
+                    setPersons(persons.filter((person) => person.id !== id)),
+                    setFilteredPersons(filteredPersons.filter((person) => person.id !== id)),
+                    newMessage(`${personToBeDeleted.name} deleted successfully`, 'success')
+                )
+        }
+    }
+    useEffect(() => {
+        const newFilteredPersons = persons.filter(
+            (person) => {
+                return (
+                    person.name.toLowerCase().includes(nameFilter.toLowerCase())
+                )
+            }
+        )
+        setFilteredPersons(newFilteredPersons)
+    }, [persons, nameFilter])
+
+    const personRows = personsToShow.map(
+        (person) => {
+            return <Person key={person.name} name={person.name} number={person.number}
+                           deletePerson={() => deletePerson(person.id)}/>
+        }
+    )
 
     return (
         <div>
+            <Notification
+                className={notificationClass}
+                message={message}
+            />
             <h2>Phonebook</h2>
             <FilterForm
                 nameFilter={nameFilter}
@@ -106,7 +149,7 @@ const App = () => {
                 onNumberChange={handleNumberChange}
             />
             <h2>Numbers</h2>
-            <Persons persons={filteredPersons} />
+            {personRows}
         </div>
     )
 }
